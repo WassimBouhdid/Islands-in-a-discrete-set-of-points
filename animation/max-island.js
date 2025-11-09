@@ -1,6 +1,14 @@
-
 const BLUE = 0;
 const RED = 1;
+
+const Step = {
+  POINT_ENTRY: 0,
+  SHOW_TRIANGLES: 1,
+  NEW_ANCHOR: 2,
+  REMOVE_BAD: 3,
+  ALGO_RUN: 4,
+  SHOW_OPTI: 5 
+}
 
 class Vec2 {
   constructor(x, y, color) {
@@ -26,7 +34,11 @@ var sortedNeighbors = {
 };
 var graph = [];
 var B = [];
-var R = []
+var R = [];
+var currentOverlayFunction = null;
+var currentBest = null;
+var currentSelect = null;
+var currentButtons = null;
 
 var infoText = "Click to add points";
 
@@ -54,21 +66,6 @@ function mousePressed() {
 windowResized = function () {
   resizeCanvas(windowWidth, windowHeight);
 };
-
-function setup() {
-  createCanvas(windowWidth, windowHeight);
-  fill("black");
-  textSize(40);
-  const redButton = createButton("red");
-  redButton.position(30, 80);
-  redButton.mousePressed(() => (userColor = "red"));
-  const blueButton = createButton("blue");
-  blueButton.position(120, 80);
-  blueButton.mousePressed(() => (userColor = "blue"));
-}
-
-// copy - push state to keep track of previous ones ?
-// steps for 1 anchor : generate graph, evict red-containing edges
 
 function generateRadialOrderings() {
   R = [];
@@ -151,7 +148,84 @@ function drawGraph() {
   }
 }
 
-function stepAnimation() {}
+function displayGraph() {
+
+}
+
+function makeSelect(...options) {
+  if (currentSelect) currentSelect.remove();
+  currentSelect = createSelect();
+  for (let i = 0; i < options.length; ++i)
+    currentSelect.option(options[i]);
+}
+
+function makeButtons(handlers, imgPaths, infoTexts) {
+  for (button of currentButtons) button.remove();
+  currentButtons = []
+  for (let i = 0; i < handlers.length; ++i) {
+    const newButton = createImg(imgPaths[i]);
+    newButton.class("dynaButton");
+    newButton.mousePressed(handlers[i]);
+    newButton.mouseOver(() => infoText = infoTexts[i])
+    newButton.mouseOut(() => infoText = "");
+    currentButtons.push(newButton);
+  }
+}
+
+function endPointEntry { // point entry -> show triangles
+  // test with 0 or one red/blue pt.
+  currentSelect.remove();
+  // Generate points, show stripes + (5 + 3 - 7 = ...) (color numbers and stripe correspondingly)
+  sortAllPoints();
+}
+
+function endShowTriangle { // show triangles -> new anchor
+  createButton();
+  currentAnchor = 1;
+  buildGraph(currentAnchor)
+  currentStepFunction = endStep[Step.NEW_ANCHOR];
+}
+
+function endNewAnchor { // new anchor (show graph()) -> remove bad
+  // no selector;
+  currentStepFunction = remove_BAD;
+}
+
+function endRemoveBad { // remove bad -> run algo
+  currentSelect.remove();
+  makeSelect("weights", "prev", "current best");
+  currentSelect.option();
+}
+
+function endOrigin() {
+
+  // if ..., call end
+}
+
+function endDest() {
+
+  // if ... call endAnchor
+}
+
+function endRunAlgo() {
+
+  // if... call endRunAlgo
+}
+
+function endRunAlgo { // run algo -> show opti
+}
+
+function endShowOpti { // show opti -> point entry - also init.
+  
+  makeSelect("blue", "red");
+}
+
+function setup() {
+  createCanvas(windowWidth, windowHeight);
+  fill("black");
+  textSize(40);
+  endShowOpti();
+}
 
 function draw() {
   // Put drawings here
@@ -161,9 +235,6 @@ function draw() {
   stroke("black");
   text(infoText, 30, 50);
   if (userPoints["blue"].length > 4) {
-    sortAllPoints();
-    buildGraph(3);
-    drawGraph();
   }
   for (pointColor of Object.entries(userPoints)) {
     fill(pointColor[0]);
