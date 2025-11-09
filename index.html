@@ -1,9 +1,60 @@
  <!DOCTYPE html>
 <html>
+<link href="index.css" rel="stylesheet" />
 <body>
 
-<h1>Optimal islands</h1>
-<p>Hello world.</p>
+<div id="content">
+    <h1>Optimal islands</h1>
+    <h2>Context</h2>
+    <div class="section">Given a set of 2D points S, an island I is a subset of S such that I &#x2229 S = CH(I). In other words, </div>
+    <h2>Objective</h2>
+    <div class="section">We are given a set S of n points, whose coordinates are stored in an array in arbitrary order. Those points are each assigned a color : blue or red. Our mission here is to find the largest monochromatic island : . WLOG, we will ; this algorithm can be run twice to find . This algorithm runs it time O(n^3) and space O(n^2): .
+    [illustr : a man searching for an island among several blue island]
+    </div>
+    Assumption part...
+    <h2>Preprocessing</h2>
+    <div>Before jumping to the core  of the algorithm, let us build auxiliary structures that will be helpful, obviously without .
+        <h3>Radial orderings</h3>
+        <par>Some operations rely strongly on radial sorts and , so  upfront   compute and store a matrix R of size n x (n - 1) s.t. line i of R is a counter-clockwise ordering of points S \ {i} w.r.t. i, that starts with an arbitrary point. O(n^2logn)</par>
+        <h3>Number of points inside a triangle</h3>
+        <par>Another crucial information that we will need to retrieve quickly is, for any triangle formed by 3 distinct points in S, the number of points contained in this triangle. Overmars et. al. propose a method to build in O(n^2) space and time a table that allows to retrieve this information in constant time afterward [ref]. It consists of a table T of size n x (n - 1) s.t. T_ij is the number of points that are below the segment (i, j) in the vertical stripe of the plane .
+            In order to compute the number of points contained in some triangle formed by points x, y, z using this table, we compute T_xy + T_yz - T_xz. (TODO schema with numbers, explain "there are ... points below edge ..., ...")
+            using table R</par>
+        Remember that points in our sets come in two : we separate . in the following, operations will be performed in constant times, and points will be accessible in radial ordering with regards to any reference point of S through .
+        
+        <h3>Bad triangles</h3>
+
+        keep in mind that radial orders have arbitrary starting point
+        Generalization : note that the triangle structure thing stays valid with weights
+    </div>
+    <h2>Notions</h2>
+    Now that the  has been dealt with, let us dive into [man diving illustr.] the main algorithm. Here are some notions 
+    <div>Anchors, island "ending" in an edge</div>
+    <h3>Blue island</h3>
+    A blue island is an island that contains only blue points.
+    <h3>Anchor</h3>
+    In order to find the actual largest blue island,  , eventually returning the largest one ever encountered through those n iterations. This uppermost most point will be refered to as "anchor" ; we say that an island, convex hull, triangle... is anchored at p if p is the uppermost point of this set.
+    <h3>"Ending" in an edge</h3>
+    Let us consider the convex hull's extreme points of an island I in S. Those points can be ordered as p_1, u_2, ..., p_k counter-clockwise, starting from the anchor (p_1). We say that I "ends with" the edge (p_k-2, p_k-1). Note that this is not the last, but rather the second to last edge of the convex hull's extreme points in counter-clockwise order (then comes the edge (p_k-1, p_1)). For the sake of simplicity, we will now call "edges of an island" the edges formed by consecutive extreme points of its convex hull.
+    [Illustration : a polygon, its anchor, its last edge]
+    <h3>Edge weight</h3>
+    Let us now think in reverse, and consider, for a given edge e and an anchor p, the largest blue island ending with p - . Consequently, the edge with highest weight is the second to last edge of the island we are looking for (which is not necessarily the largest blue island of S, but it is the largest blue island anchored at p). From this perspective, finding the largest blue island anchored at p amounts to finding the last, and then the next one in clockwise order, ...etc. If you are starting to see some recurrence come on the horizon, that is spot on, but let us first define a notion that will coming handy for glueing edges together. [Drawing : guy observes the horizon, sees equation thing floating in the sky]
+    <h3>p-compatibility</h3>
+    Two edges a and b of a convex polygon anchored at p are said p-compatible if the two triangles they respectively form when connected to p share an edge. More formally, it means that . Consequently, two disjoint islands anchored at p can be combined into one larger island if an edge of one is p-compatible with an edge of the other.
+    <h2>Recurrence relationships</h2>
+    Let us discard, in O(n^2) time, all . Now rid of those malicious non-viable edges, our mission reduces to finding the largest islands with the remaining ones.
+
+    Recall that all those , are proper to one of the n iterations.
+
+    Speak quickly about multiplicity of biggest blue island
+    <h2>Generalization</h2>
+    <div>(in a little light-bulb thing) 2-coloring... = particular case + additional steps </div>
+    <h2>What for ?</h2>
+    Color code : blue, yellow, brown, green
+    Animation control : next step, next anchor... When overing, detailed info
+	Put some things in bold/some inner links.
+	Hover : gray frame. Click : toggle, black frame. Message "hover to see, click to toggle". Graph, prev, weights (w/max color)...
+</div>
 
 </body>
-</html> 
+</html>
