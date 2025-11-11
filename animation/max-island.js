@@ -1,65 +1,25 @@
-const BLUE = 0;
-const RED = 1;
-
-const Step = {
-  POINT_ENTRY: 0,
-  SHOW_TRIANGLES: 1,
-  NEW_ANCHOR: 2,
-  REMOVE_BAD: 3,
-  ALGO_RUN: 4,
-  SHOW_OPTI: 5 
-}
-
-class Vec2 {
-  constructor(x, y, color) {
-    this.x = x;
-    this.y = y;
-    this.color = color;
-  }
-
-  plus(other) {
-    return new Vec2(this.x + other.x, this.y + other.y);
-  }
-
-  minus(other) {
-    return new Vec2(this.x - other.x, this.y - other.y);
-  }
-}
-
-var userColor = BLUE;
-var S = []
-var sortedNeighbors = {
-  blue: [],
-  red: [],
-};
-var graph = [];
+var userColor = "blue";
+var S = [];
+var bluePoints = [];
 var B = [];
 var R = [];
+var graph = [];
+var underPoints = [];
+var TBlue = [];
+var TRed = [];
+var currentAnchor = null;
 var currentOverlayFunction = null;
 var currentBest = null;
-var currentSelect = null;
+var modeButtons = new ModeButtons();
+var actionButtons = new ActionButtons();
 var currentButtons = null;
 
 var infoText = "Click to add points";
-
-function orientationDeterminant(p1, p2, p3) {
-  let vec1 = p2.minus(p1);
-  let vec2 = p3.minus(p2);
-  return vec1.x * vec2.y - vec1.y * vec2.x;
-}
-
-function isRightTurn(p1, p2, p3) {
-  return orientationDeterminant(p1, p2, p3) > 0;
-}
 
 function resetPoints(e) {
   e.stopPropagation();
   userPoints["blue"] = [];
   userPoints["red"] = [];
-}
-
-function mousePressed() {
-  userPoints[userColor].push(new Vec2(mouseX, mouseY));
 }
 
 // This Redraws the Canvas when resized
@@ -70,49 +30,84 @@ windowResized = function () {
 function generateRadialOrderings() {
   R = [];
   for (let i = 0; i < S.length; ++i) {
-    R.push([...Array(ps.length).keys()]);
-    R[i].splice(i, 1);
-    R[i].sort((a, b) => {
+    const rightSide = [];
+    const leftSide = [...Array(S.length).keys()];
+    leftSide.splice(i, 1);
+    for (let j = leftSide.length - 1; j >= 0; --j) {
+      if (S[leftSide[j]].x < S[i].x) {
+        rightSide.push(leftSide[j]);
+        leftSide.splice(j, 1);
+      }
+    }
+    sortFunction = (a, b) => {
       return orientationDeterminant(S[i], S[a], S[b]);
-    });
+    }
+    leftSide.sort(sortFunction);
+    rightSide.sort(sortFunction);
+    R.push(leftSide + rightSide);
   }
 }
 
-function numPointsInTriangle(p1, p2, p3) {
-  p1, p2, p3 = [p1, p2, p3].sort((a, b) => S[b].x - S[a].x);
-  return stripes[p1][p2] + stripes[p2][p3] - stripes[p1][p3];
+function radialOrderingHalfCut(referenceIndex, ordering, cutVector) {
+  const cutIndex = 0;
+  while(isRightTurn(S[referenceIndex].plus(cutVector), S[ordering[cutIndex]])) ++cutIndex;
+  return ordering.map((e, i) => { ordering[(i + cutIndex) % ordering.length] });
 }
 
 function generateTriangleInformation() {
-  const stripes = []
-  for (let i = 0; i < S.length; ++i) {
-    stripes.push([])
-    for (let j = 0; j < S.length; ++j) stripes[i].push(0);
-  }
-  const sortedByX = [...Array(S.length).keys()];
-  sortedByX.sort((i, j) => S[j].x - S[i].x);
-  for (let i = 1; i < sortedByX.length; ++i) {
-    const referenceIndex = sortedByX[x];
-    const reference = S[referenceIndex];
-    const sortedRadially = R[sortedByX[x]];
-    sortedRadially = sorted.filter((j) => S[j].x < reference.x);
-    console.log("Equal", i, sortedRadially.length);
-    for (let j = i - 1; j >= 1; --j) {
-      const previous = sortedRadially[j - 1];
-      const current = sortedRadially[j];
-      if (S[current].x < S[previous].x)
-        stripes[current][referenceIndex] = stripes[previous][referenceIndex] + stripes[current][previous] + 1;
-      else
-        stripes[current][referenceIndex] = stripes[previous][referenceIndex] - stripes[current][previous];
-    }
+  TBlue = generateColorTriangleInformation("blue");
+  TRed = generateColorTriangleInformation("red");
+}
+
+function findRadialStart(refPoint, rotatedVector, direction) {
+  // TODO...
+  for (let start = 0; start < rotatedVector.length; ++start) {
+    const startPoint = rotatedVector[start];
+    const previous = rotatedVector[(start - 1 + rotatedVector.length) % rotatedVector.length];
+    const toLeft = orientationDeterminant(refPoint, S[startPoint], S[previous]);
+    if ((toLeft * direction) > 0) return start;
   }
 }
 
-function buildGraph(anchor) {
+function generateColorTriangleInformation(color) {
+  let T = []
+  for (let i = 0; i < S.length; ++i) {
+    T.push([])
+    for (let j = 0; j < S.length; ++j) T[i].push(0);
+  }
+  const sortedByX = [...Array(S.length).keys()];
+  sortedByX.sort((i, j) => S[i].x - S[j].x);
+  for (let i = 2; i < sortedByX.length; ++i) {
+    console.log("Point ", sortedByX[i]);
+    const referenceIndex = sortedByX[i];
+    const referencePoint = S[referenceIndex];
+    sortedRadially = sortedByX.slice(0, i);
+    // TODO : retrieve order from R
+    sortedRadially.sort((a, b) => orientationDeterminant(referencePoint, S[b], S[a]));
+    for (let j = 1; j < sortedRadially.length; ++j) {
+      const previous = sortedRadially[j - 1];
+      const current = sortedRadially[j];
+      if (S[current].x < S[previous].x) {
+        const toAdd = (S[previous].color === color) ? 1 : 0
+        T[current][referenceIndex] = T[previous][referenceIndex] + T[current][previous] + toAdd;
+      } else {
+        T[current][referenceIndex] = T[previous][referenceIndex] - T[previous][current];
+      }
+    }
+  }
+  return T;
+}
+
+function initAnchor(anchor) {
+  console.log("anchor blue index", anchor)
+  const anchorSIndex = bluePoints[anchor]; 
+  console.log("Anchor point", S[anchorSIndex])
   graph = [];
-  underPoints = sortedNeighbors[anchor].filter(
-    (i) => userPoints.blue[i].y > userPoints.blue[anchor].y
+  underPoints = bluePoints.filter(
+    (i) => { S[i].y > S[anchorSIndex].y && S[i].color === "blue" }
   );
+  console.log("under points", underPoints)
+  underPoints.sort((a, b) => orientationDeterminant(referencePoint, S[a], S[b]));
   for (let i = 0; i < underPoints.length - 1; ++i) {
     for (let j = i + 1; j < underPoints.length; ++j) graph.push([underPoints[i], underPoints[j]]);
   }
@@ -139,62 +134,58 @@ function gradientLine(point1, point2, color1, color2) {
 }
 
 function drawGraph() {
+  //console.log(graph)
   stroke("green");
   for (edge of graph) {
     const a = userPoints["blue"][edge[0]];
     const b = userPoints["blue"][edge[1]];
-    //drawArrow(a, b);
     gradientLine(a, b, color(50, 200, 50, 0), color(50, 200, 50, 255));
   }
 }
 
-function displayGraph() {
-
-}
-
-function makeSelect(...options) {
-  if (currentSelect) currentSelect.remove();
-  currentSelect = createSelect();
-  for (let i = 0; i < options.length; ++i)
-    currentSelect.option(options[i]);
-}
-
-function makeButtons(handlers, imgPaths, infoTexts) {
-  for (button of currentButtons) button.remove();
-  currentButtons = []
-  for (let i = 0; i < handlers.length; ++i) {
-    const newButton = createImg(imgPaths[i]);
-    newButton.class("dynaButton");
-    newButton.mousePressed(handlers[i]);
-    newButton.mouseOver(() => infoText = infoTexts[i])
-    newButton.mouseOut(() => infoText = "");
-    currentButtons.push(newButton);
-  }
-}
-
-function endPointEntry { // point entry -> show triangles
+function startShowTriangles() { // point entry -> show triangles
+  enablePointEntry = false;
   // test with 0 or one red/blue pt.
-  currentSelect.remove();
+  actionButtons.clear();
+  modeButtons.clear();
+  generateRadialOrderings();
+  generateTriangleInformation();
+  const triangleOverlay = new TriangleOverlay(S, TBlue, TRed);
+  currentOverlayFunction = () => triangleOverlay.draw();
+  mousePressed = () => triangleOverlay.processClick(mouseX, mouseY);
+  actionButtons.set(["resources/nextAnchor.png"], [startNewAnchor], ["Next step : start algorithm"])
   // Generate points, show stripes + (5 + 3 - 7 = ...) (color numbers and stripe correspondingly)
-  sortAllPoints();
 }
 
-function endShowTriangle { // show triangles -> new anchor
-  createButton();
-  currentAnchor = 1;
-  buildGraph(currentAnchor)
-  currentStepFunction = endStep[Step.NEW_ANCHOR];
+function startNewAnchor() { // show triangles -> new anchor
+  mousePressed = () => {}
+  actionButtons.clear();
+  currentAnchor ??= 0;
+  // TODO : one point optisland - best island = anchor
+  while (true) { // find next anchor that has under-points
+    ++currentAnchor;
+    console.log("Test anchor", currentAnchor);
+    initAnchor(currentAnchor);
+    console.log("Graph", graph)
+    if (currentAnchor === bluePoints.length) {
+      endRunAlgo();
+      return;
+    }
+    if (underPoints.length > 0 || currentAnchor === 30) break;
+  }
+  console.log("Anchor", currentAnchor)
+  currentOverlayFunction = drawGraph;
+  actionButtons.set(["resources/nextAnchor.png"], [startRemoveBad], ["Next step : remove non-viable edges"])
 }
 
-function endNewAnchor { // new anchor (show graph()) -> remove bad
+function startRemoveBad() { // new anchor (show graph()) -> remove bad
   // no selector;
   currentStepFunction = remove_BAD;
+  actionButtons.set(["resources/nextAnchor.png"], [startRemoveBad], ["Next step : remove non-viable edges"])
 }
 
-function endRemoveBad { // remove bad -> run algo
-  currentSelect.remove();
-  makeSelect("weights", "prev", "current best");
-  currentSelect.option();
+function startRunAlgo() { // remove bad -> run algo
+  currentRadio.remove();
 }
 
 function endOrigin() {
@@ -209,22 +200,36 @@ function endDest() {
 
 function endRunAlgo() {
 
-  // if... call endRunAlgo
+  // if... call endNewAnchor, or endShowTriangle
 }
 
-function endRunAlgo { // run algo -> show opti
-}
-
-function endShowOpti { // show opti -> point entry - also init.
-  
-  makeSelect("blue", "red");
+function resetRun() { // show opti -> point entry - also init.
+  currentAnchor = null;
+  currentOverlayFunction = null;
+  currentBest = null;
+  currentOverlayFunction = null;
+  S = [];
+  bluePoints = [];
+  redPoints = [];
+  const colors = ["blue", "red"];
+  const handlers = [() => userColor = "blue", () => userColor = "red"];
+  modeButtons.set(colors, handlers, ["Add blue points", "Add red points"]);
+  actionButtons.set(["resources/nextAnchor.png"], [startShowTriangles], ["Next step : count points in triangles"])
+  mousePressed = () => {
+    const newPoint = new Vec2(mouseX, mouseY, userColor);
+    for (p of S) // no vertical - horizontal alignments
+      if (p.x === newPoint.x || p.y === newPoint.y) return;
+    S.push(newPoint)
+    if (userColor === "blue") bluePoints.push(S.length - 1);
+    else redPoints.push(S.length - 1);
+  };
 }
 
 function setup() {
   createCanvas(windowWidth, windowHeight);
   fill("black");
   textSize(40);
-  endShowOpti();
+  resetRun();
 }
 
 function draw() {
@@ -233,12 +238,12 @@ function draw() {
   background(200);
   fill("black");
   stroke("black");
-  text(infoText, 30, 50);
-  if (userPoints["blue"].length > 4) {
+  text(infoText, 30, windowHeight - 50);
+  for (p in S) {
+    text("" + p, S[p].x, S[p].y)
+    stroke(S[p].color);
+    fill(S[p].color);
+    ellipse(S[p].x, S[p].y, 4, 4);
   }
-  for (pointColor of Object.entries(userPoints)) {
-    fill(pointColor[0]);
-    stroke(pointColor[0]);
-    for (userPoint of pointColor[1]) ellipse(userPoint.x, userPoint.y, 4, 4);
-  }
+  if (currentOverlayFunction) currentOverlayFunction();
 }

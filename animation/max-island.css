@@ -10,7 +10,7 @@ html, body {
     font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
-#playButtons {
+#actionButtonContainer {
     position: absolute;
     bottom: 0;
     padding: 20px;
@@ -22,7 +22,7 @@ html, body {
     gap: 30px;
 }
 
-#playButtons, #playButtons * {
+#actionButtonContainer, #actionButtonContainer * {
     user-select: none;
     -moz-user-select: none;
     -khtml-user-select: none;
@@ -37,4 +37,17 @@ html, body {
 
 .playIcon:hover, .dynaButton:hover {
     filter: opacity(50%);
+}
+
+#modeButtonContainer {
+    position: absolute;
+    padding: 10px;
+    right: 0;
+    display: flex;
+    gap: 20px;
+}
+
+#modeButtonContainer .selected {
+    border: solid;
+    border-width: 2px;
 }
