@@ -9,5 +9,6 @@ for (let navTab of document.querySelectorAll(".navTab")) {
         navTab.classList.add("selected")
         const currentSection = document.getElementById(section);
         currentSection.classList.add("currentSection");
+        window.location.href = "#" + section;
     })
 }

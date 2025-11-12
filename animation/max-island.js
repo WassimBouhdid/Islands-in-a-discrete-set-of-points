@@ -290,14 +290,14 @@ function resetRun() { // show opti -> point entry - also init.
 function setup() {
   createCanvas(windowWidth, windowHeight);
   fill("black");
-  textSize(40);
+  textSize(20);
   resetRun();
 }
 
 function draw() {
   // Put drawings here
   fill("grey");
-  background(200);
+  background(255);
   fill("black");
   stroke("black");
   text(infoText, 30, windowHeight - 50);
