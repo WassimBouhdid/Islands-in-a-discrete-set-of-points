@@ -38,3 +38,7 @@ function numPointsInTriangle(stripes, points, p1, p2, p3, color) {
     result -= 1;
   return result;
 }
+
+function pCompatible(points, p1, p2, p3) {
+  return !isRightTurn(points[p1], points[p2], points[p3]);
+}

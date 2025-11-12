@@ -3,13 +3,22 @@ var S = [];
 var bluePoints = [];
 var B = [];
 var R = [];
-var graph = [];
+var W = [];
+var prev = [];
 var underPoints = [];
 var TBlue = [];
 var TRed = [];
-var currentAnchor = null;
+
+var currentAnchor;
+var currentAnchorBlueIndex = null;
+var currentPivot = 0;
+var inEdges = [];
+var outEdges = [];
+var currentOutEdge = 0;
+
 var currentOverlayFunction = null;
-var currentBest = null;
+var anchorBestWeight = null;
+var currentBestIsland = null;
 var modeButtons = new ModeButtons();
 var actionButtons = new ActionButtons();
 var currentButtons = null;
@@ -44,29 +53,32 @@ function generateRadialOrderings() {
     }
     leftSide.sort(sortFunction);
     rightSide.sort(sortFunction);
-    R.push(leftSide + rightSide);
+    R.push(leftSide.concat(rightSide));
   }
 }
 
 function radialOrderingHalfCut(referenceIndex, ordering, cutVector) {
-  const cutIndex = 0;
-  while(isRightTurn(S[referenceIndex].plus(cutVector), S[ordering[cutIndex]])) ++cutIndex;
-  return ordering.map((e, i) => { ordering[(i + cutIndex) % ordering.length] });
+  // TODO : move it to geom, with points argument
+  ordering = ordering.filter((i) => isRightTurn(S[referenceIndex], S[referenceIndex].plus(cutVector), S[i]));
+  return ordering.sort((a, b) => orientationDeterminant(S[referenceIndex], S[a], S[b])); // cheating for now
+  /*let cutIndex = 0;
+  while (true) {
+    const previous = ordering[(cutIndex - 1 + ordering.length) % ordering.length];
+    const next = ordering[(cutIndex + 1) % ordering.length];
+    if (!isRightTurn(S[referenceIndex], S[cutIndex], S[next]) &&
+      !isRightTurn(S[referenceIndex], S[cutIndex], S[previous])) break;
+    console.log(cutIndex)
+    ++cutIndex;
+  }
+  console.log("Cut index", cutIndex, ordering[cutIndex])
+  const result = []
+  for (let i = 0; i < ordering.length; ++i)
+    result.push(ordering[(cutIndex + i - 2) % ordering.length]);*/
 }
 
 function generateTriangleInformation() {
   TBlue = generateColorTriangleInformation("blue");
   TRed = generateColorTriangleInformation("red");
-}
-
-function findRadialStart(refPoint, rotatedVector, direction) {
-  // TODO...
-  for (let start = 0; start < rotatedVector.length; ++start) {
-    const startPoint = rotatedVector[start];
-    const previous = rotatedVector[(start - 1 + rotatedVector.length) % rotatedVector.length];
-    const toLeft = orientationDeterminant(refPoint, S[startPoint], S[previous]);
-    if ((toLeft * direction) > 0) return start;
-  }
 }
 
 function generateColorTriangleInformation(color) {
@@ -78,7 +90,6 @@ function generateColorTriangleInformation(color) {
   const sortedByX = [...Array(S.length).keys()];
   sortedByX.sort((i, j) => S[i].x - S[j].x);
   for (let i = 2; i < sortedByX.length; ++i) {
-    console.log("Point ", sortedByX[i]);
     const referenceIndex = sortedByX[i];
     const referencePoint = S[referenceIndex];
     sortedRadially = sortedByX.slice(0, i);
@@ -98,18 +109,21 @@ function generateColorTriangleInformation(color) {
   return T;
 }
 
-function initAnchor(anchor) {
-  console.log("anchor blue index", anchor)
-  const anchorSIndex = bluePoints[anchor]; 
-  console.log("Anchor point", S[anchorSIndex])
-  graph = [];
-  underPoints = bluePoints.filter(
-    (i) => { S[i].y > S[anchorSIndex].y && S[i].color === "blue" }
-  );
-  console.log("under points", underPoints)
-  underPoints.sort((a, b) => orientationDeterminant(referencePoint, S[a], S[b]));
+function initAnchor() {
+  W = []
+  prev = []
+  for (let i = 0; i < S.length; ++i) {
+    W.push([]);
+    prev.push([])
+    for (q of S) {
+      prev[i].push(null);
+      W[i].push(null);
+    }
+  }
+  underPoints = R[currentAnchor].filter((i) => S[i].color === "blue");
+  underPoints = radialOrderingHalfCut(currentAnchor, underPoints, new Vec2(-1, 0))
   for (let i = 0; i < underPoints.length - 1; ++i) {
-    for (let j = i + 1; j < underPoints.length; ++j) graph.push([underPoints[i], underPoints[j]]);
+    for (let j = i + 1; j < underPoints.length; ++j) W[underPoints[i]][underPoints[j]] = 0;
   }
 }
 
@@ -120,7 +134,6 @@ function drawArrow(src, dest) {
   const angle = atan2(src.y - dest.y, src.x - dest.x);
   const upperAngle = angle + deltaAngle;
   const lowerAngle = angle - deltaAngle;
-  console.log(upperAngle, lowerAngle)
   line(dest.x, dest.y, dest.x + cos(upperAngle) * pointLength, dest.y + sin(upperAngle) * pointLength);
   line(dest.x, dest.y, dest.x + cos(lowerAngle) * pointLength, dest.y + sin(lowerAngle) * pointLength);
 }
@@ -133,13 +146,24 @@ function gradientLine(point1, point2, color1, color2) {
   line(point1.x, point1.y, point2.x, point2.y);
 }
 
-function drawGraph() {
-  //console.log(graph)
+function drawGraph(showWeights = false) {
   stroke("green");
-  for (edge of graph) {
-    const a = userPoints["blue"][edge[0]];
-    const b = userPoints["blue"][edge[1]];
-    gradientLine(a, b, color(50, 200, 50, 0), color(50, 200, 50, 255));
+  for (let i = 0; i < W.length; ++i) {
+    for (let j = 0; j < W.length; ++j) {
+      const weight = W[i][j];
+      if (weight === null) continue;
+      if (showWeights) {
+        if (weight === 0) continue;
+        const intensity = 200 * weight / anchorBestWeight;
+        const edgeColor = color(50, intensity, 50);
+        stroke(edgeColor)
+        line(S[i].x, S[i].y, S[j].x, S[j].y);
+      } else {
+        const a = S[i];
+        const b = S[j];
+        gradientLine(a, b, color(200, 50, 50, 0), color(50, 200, 50, 255));
+      }
+    }
   }
 }
 
@@ -160,52 +184,90 @@ function startShowTriangles() { // point entry -> show triangles
 function startNewAnchor() { // show triangles -> new anchor
   mousePressed = () => {}
   actionButtons.clear();
-  currentAnchor ??= 0;
+  currentAnchorBlueIndex ??= 0;
   // TODO : one point optisland - best island = anchor
   while (true) { // find next anchor that has under-points
-    ++currentAnchor;
-    console.log("Test anchor", currentAnchor);
-    initAnchor(currentAnchor);
-    console.log("Graph", graph)
-    if (currentAnchor === bluePoints.length) {
+    ++currentAnchorBlueIndex;
+    currentAnchor = bluePoints[currentAnchorBlueIndex];
+    initAnchor(currentAnchorBlueIndex);
+    if (currentAnchorBlueIndex === bluePoints.length) {
       endRunAlgo();
       return;
     }
-    if (underPoints.length > 0 || currentAnchor === 30) break;
+    if (underPoints.length > 0) break;
   }
-  console.log("Anchor", currentAnchor)
   currentOverlayFunction = drawGraph;
   actionButtons.set(["resources/nextAnchor.png"], [startRemoveBad], ["Next step : remove non-viable edges"])
 }
 
 function startRemoveBad() { // new anchor (show graph()) -> remove bad
   // no selector;
-  currentStepFunction = remove_BAD;
-  actionButtons.set(["resources/nextAnchor.png"], [startRemoveBad], ["Next step : remove non-viable edges"])
+  for (let i = 0; i < underPoints.length - 1; ++i) {
+    for (let j = i + 1; j < underPoints.length; ++j) {
+      if (numPointsInTriangle(TRed, S, currentAnchor, underPoints[i], underPoints[j], "red") > 0)
+        W[underPoints[i]][underPoints[j]] = null;
+    }
+  }
+  actionButtons.set(["resources/nextAnchor.png"], [startRunAlgo], ["Next step : compute first weights"])
 }
 
-function startRunAlgo() { // remove bad -> run algo
-  currentRadio.remove();
+function nextIteration() {
+  // TODO : skip arguments for buttons
+  ++currentOutEdge;
+  if (currentOutEdge === outEdges.length || currentPivot === 0) { // next pivot
+    ++currentPivot;
+    if (currentPivot === underPoints.length) {
+      startNewAnchor();
+      return;
+    }
+    outEdges = radialOrderingHalfCut(underPoints[currentPivot], R[currentPivot], S[underPoints[currentPivot]].minus(S[currentAnchor]));
+    outEdges = outEdges.filter(((i) => S[i].color === "blue" && S[i].y > S[currentAnchor].y));
+    inEdges = radialOrderingHalfCut(underPoints[currentPivot], R[currentPivot], S[currentAnchor].minus(S[underPoints[currentPivot]]));
+    inEdges = inEdges.filter((i) => (S[i].color === "blue" && S[i].y > S[currentAnchor].y));
+    console.log("In out ", inEdges, outEdges)
+    currentOutEdge = 0;
+  } else {
+    // for now : just re-browse the whole thing each time
+    let currentInEdge = 0;
+    let maxInEdge = 0;
+    let maxInWeight = 0;
+    console.log("Inedges", inEdges)
+    while (currentInEdge < inEdges.length
+      && pCompatible(S, inEdges[currentInEdge], underPoints[currentPivot], outEdges[currentOutEdge])) {
+      const inWeight = W[inEdges[currentInEdge]][underPoints[currentPivot]];
+      console.log("InWeight", inWeight)
+      if (inWeight > maxInWeight) {
+        maxInEdge = currentInEdge;
+        maxInWeight = inWeight;
+      }
+      ++currentInEdge;
+    }
+    prev[underPoints[currentPivot]][outEdges[currentOutEdge]] = maxInEdge;
+    W[underPoints[currentPivot]][outEdges[currentOutEdge]] = maxInWeight
+      + numPointsInTriangle(TBlue, S, currentAnchor, inEdges[maxInEdge], underPoints[currentPivot], "blue")
+      - 2;
+    const newWeight = W[underPoints[currentPivot]][outEdges[currentOutEdge]];
+    console.log("New weight", newWeight);
+    if (newWeight > anchorBestWeight) anchorBestWeight = newWeight; // for overlay
+  }
 }
 
-function endOrigin() {
-
-  // if ..., call end
-}
-
-function endDest() {
-
-  // if ... call endAnchor
-}
-
-function endRunAlgo() {
-
-  // if... call endNewAnchor, or endShowTriangle
+function startRunAlgo() {
+  anchorBestWeight = 0;
+  for (let i = 1; i < underPoints.length; ++i) {
+    W[underPoints[0]][underPoints[i]] = numPointsInTriangle(TBlue, S, currentAnchor, underPoints[0], underPoints[i], "blue") + 3;
+    console.log("Set weight", W[underPoints[0]][underPoints[i]]);
+  }
+  currentPivot = 0; // not a valid pivot, but triggers first pivot init
+  actionButtons.clear();
+  actionButtons.set(["resources/nextOrigin.png"], [nextIteration], ["Next outgoing edge"]);
+  modeButtons.set(["weights"], [
+    () => { currentOverlayFunction = () => drawGraph(true) }
+  ], ["show edge weights"]);
 }
 
 function resetRun() { // show opti -> point entry - also init.
-  currentAnchor = null;
-  currentOverlayFunction = null;
+  currentAnchorBlueIndex = null;
   currentBest = null;
   currentOverlayFunction = null;
   S = [];
@@ -240,10 +302,14 @@ function draw() {
   stroke("black");
   text(infoText, 30, windowHeight - 50);
   for (p in S) {
-    text("" + p, S[p].x, S[p].y)
+    //text("" + p, S[p].x, S[p].y)
     stroke(S[p].color);
     fill(S[p].color);
     ellipse(S[p].x, S[p].y, 4, 4);
+    //console.log("State", p, currentAnchor)
+    if (Number(p) === currentAnchorBlueIndex) {
+      text("A", S[p].x, S[p].y);
+    }
   }
   if (currentOverlayFunction) currentOverlayFunction();
 }
