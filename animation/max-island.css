@@ -9,6 +9,7 @@ html, body {
     border: none;
     font-size: 32px;
     font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    cursor: pointer;
 }
 
 #actionButtonContainer {

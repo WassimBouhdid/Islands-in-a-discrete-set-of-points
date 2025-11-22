@@ -8,7 +8,6 @@ class TriangleOverlay {
     }
 
     processClick(x, y) {
-        console.log("Clicked")
         let closest = null;
         for (let i = 0; i < this.S.length; ++i) {
             if (Math.hypot(S[i].x - x, S[i].y - y) < 5) {

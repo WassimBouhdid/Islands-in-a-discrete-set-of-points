@@ -3,24 +3,14 @@ var S = [];
 var bluePoints = [];
 var B = [];
 var R = [];
-var W = [];
-var prev = [];
-var underPoints = [];
 var TBlue = [];
 var TRed = [];
 
-var currentAnchor;
-var currentAnchorBlueIndex = null;
-var currentPivot = 0;
-var inEdges = [];
-var outEdges = [];
-var currentOutEdge = 0;
-
 var currentOverlayFunction = null;
-var anchorBestWeight = null;
 var currentBestIsland = null;
 var modeButtons = new ModeButtons();
 var actionButtons = new ActionButtons();
+var mainAlgo = null;
 var currentButtons = null;
 
 var infoText = "Click to add points";
@@ -146,27 +136,6 @@ function gradientLine(point1, point2, color1, color2) {
   line(point1.x, point1.y, point2.x, point2.y);
 }
 
-function drawGraph(showWeights = false) {
-  stroke("green");
-  for (let i = 0; i < W.length; ++i) {
-    for (let j = 0; j < W.length; ++j) {
-      const weight = W[i][j];
-      if (weight === null) continue;
-      if (showWeights) {
-        if (weight === 0) continue;
-        const intensity = 200 * weight / anchorBestWeight;
-        const edgeColor = color(50, intensity, 50);
-        stroke(edgeColor)
-        line(S[i].x, S[i].y, S[j].x, S[j].y);
-      } else {
-        const a = S[i];
-        const b = S[j];
-        gradientLine(a, b, color(200, 50, 50, 0), color(50, 200, 50, 255));
-      }
-    }
-  }
-}
-
 function startShowTriangles() { // point entry -> show triangles
   enablePointEntry = false;
   // test with 0 or one red/blue pt.
@@ -177,98 +146,55 @@ function startShowTriangles() { // point entry -> show triangles
   const triangleOverlay = new TriangleOverlay(S, TBlue, TRed);
   currentOverlayFunction = () => triangleOverlay.draw();
   mousePressed = () => triangleOverlay.processClick(mouseX, mouseY);
-  actionButtons.set(["resources/nextAnchor.png"], [startNewAnchor], ["Next step : start algorithm"])
+  actionButtons.set(["resources/nextAnchor.png"], [startRunAlgo], ["Next step : choose an anchor"])
   // Generate points, show stripes + (5 + 3 - 7 = ...) (color numbers and stripe correspondingly)
 }
 
-function startNewAnchor() { // show triangles -> new anchor
-  mousePressed = () => {}
-  actionButtons.clear();
-  currentAnchorBlueIndex ??= 0;
-  // TODO : one point optisland - best island = anchor
-  while (true) { // find next anchor that has under-points
-    ++currentAnchorBlueIndex;
-    currentAnchor = bluePoints[currentAnchorBlueIndex];
-    initAnchor(currentAnchorBlueIndex);
-    if (currentAnchorBlueIndex === bluePoints.length) {
-      endRunAlgo();
-      return;
-    }
-    if (underPoints.length > 0) break;
-  }
-  currentOverlayFunction = drawGraph;
-  actionButtons.set(["resources/nextAnchor.png"], [startRemoveBad], ["Next step : remove non-viable edges"])
-}
-
-function startRemoveBad() { // new anchor (show graph()) -> remove bad
-  // no selector;
-  for (let i = 0; i < underPoints.length - 1; ++i) {
-    for (let j = i + 1; j < underPoints.length; ++j) {
-      if (numPointsInTriangle(TRed, S, currentAnchor, underPoints[i], underPoints[j], "red") > 0)
-        W[underPoints[i]][underPoints[j]] = null;
-    }
-  }
-  actionButtons.set(["resources/nextAnchor.png"], [startRunAlgo], ["Next step : compute first weights"])
-}
-
-function nextIteration() {
-  // TODO : skip arguments for buttons
-  ++currentOutEdge;
-  if (currentOutEdge === outEdges.length || currentPivot === 0) { // next pivot
-    ++currentPivot;
-    if (currentPivot === underPoints.length) {
-      startNewAnchor();
-      return;
-    }
-    outEdges = radialOrderingHalfCut(underPoints[currentPivot], R[currentPivot], S[underPoints[currentPivot]].minus(S[currentAnchor]));
-    outEdges = outEdges.filter(((i) => S[i].color === "blue" && S[i].y > S[currentAnchor].y));
-    inEdges = radialOrderingHalfCut(underPoints[currentPivot], R[currentPivot], S[currentAnchor].minus(S[underPoints[currentPivot]]));
-    inEdges = inEdges.filter((i) => (S[i].color === "blue" && S[i].y > S[currentAnchor].y));
-    console.log("In out ", inEdges, outEdges)
-    currentOutEdge = 0;
-  } else {
-    // for now : just re-browse the whole thing each time
-    let currentInEdge = 0;
-    let maxInEdge = 0;
-    let maxInWeight = 0;
-    console.log("Inedges", inEdges)
-    while (currentInEdge < inEdges.length
-      && pCompatible(S, inEdges[currentInEdge], underPoints[currentPivot], outEdges[currentOutEdge])) {
-      const inWeight = W[inEdges[currentInEdge]][underPoints[currentPivot]];
-      console.log("InWeight", inWeight)
-      if (inWeight > maxInWeight) {
-        maxInEdge = currentInEdge;
-        maxInWeight = inWeight;
-      }
-      ++currentInEdge;
-    }
-    prev[underPoints[currentPivot]][outEdges[currentOutEdge]] = maxInEdge;
-    W[underPoints[currentPivot]][outEdges[currentOutEdge]] = maxInWeight
-      + numPointsInTriangle(TBlue, S, currentAnchor, inEdges[maxInEdge], underPoints[currentPivot], "blue")
-      - 2;
-    const newWeight = W[underPoints[currentPivot]][outEdges[currentOutEdge]];
-    console.log("New weight", newWeight);
-    if (newWeight > anchorBestWeight) anchorBestWeight = newWeight; // for overlay
-  }
-}
-
 function startRunAlgo() {
-  anchorBestWeight = 0;
-  for (let i = 1; i < underPoints.length; ++i) {
-    W[underPoints[0]][underPoints[i]] = numPointsInTriangle(TBlue, S, currentAnchor, underPoints[0], underPoints[i], "blue") + 3;
-    console.log("Set weight", W[underPoints[0]][underPoints[i]]);
-  }
-  currentPivot = 0; // not a valid pivot, but triggers first pivot init
+  mainAlgo = new MainAlgo(S, R, TBlue, TRed);
+  actionButtons.set(["resources/nextAnchor.png"], [startRemoveBad], ["Next step : remove non-viable edges"])
+  currentOverlayFunction = () => mainAlgo.showGraphOverlay();
+}
+
+function startRemoveBad() {
+  mainAlgo.filterRedPoints();
+  actionButtons.set(["resources/nextAnchor.png"], [startProcessPivots], ["Next step : compute first weights"])
+}
+
+function startProcessPivots() {
   actionButtons.clear();
-  actionButtons.set(["resources/nextOrigin.png"], [nextIteration], ["Next outgoing edge"]);
-  modeButtons.set(["weights"], [
-    () => { currentOverlayFunction = () => drawGraph(true) }
-  ], ["show edge weights"]);
+  console.log("Set handlers")
+  const stepInEdgeHandler = () => {
+    mainAlgo.stepInEdge();
+  }
+  const stepPivotHandler = () => {
+    let result = NOT_OVER;
+    while (result < EDGES_OVER) {
+      result = mainAlgo.stepInEdge();
+    }
+  }
+  const stepAnchorHandler = () => {
+    let result = NOT_OVER;
+    while (result < PIVOTS_OVER) {
+      result = mainAlgo.stepInEdge();
+    }
+  }
+  actionButtons.set(["resources/nextOrigin.png", "resources/nextPivot.png", "resources/nextAnchor.png"],
+    [stepInEdgeHandler, stepPivotHandler, stepAnchorHandler],
+    ["next edge pair", "next pivot", "next anchor"]);
+  modeButtons.set(["weights", "progress", "best island"], [
+    () => { currentOverlayFunction = () => mainAlgo.showGraphOverlay() },
+    () => { currentOverlayFunction = () => mainAlgo.showBestOverlay() },
+    () => { currentOverlayFunction = () => mainAlgo.showProgressOverlay() }
+  ], ["show edge weights", "show current in-out edges", "show best islands found so far"]);
+  currentOverlayFunction = () => mainAlgo.showWeightOverlay();
+}
+
+function startShowBest() {
+  currentOverlayFunction = () => {}
 }
 
 function resetRun() { // show opti -> point entry - also init.
-  currentAnchorBlueIndex = null;
-  currentBest = null;
   currentOverlayFunction = null;
   S = [];
   bluePoints = [];
@@ -301,15 +227,12 @@ function draw() {
   fill("black");
   stroke("black");
   text(infoText, 30, windowHeight - 50);
-  for (p in S) {
+  for (let p = 0; p < S.length; ++p) {
     //text("" + p, S[p].x, S[p].y)
     stroke(S[p].color);
     fill(S[p].color);
     ellipse(S[p].x, S[p].y, 4, 4);
     //console.log("State", p, currentAnchor)
-    if (Number(p) === currentAnchorBlueIndex) {
-      text("A", S[p].x, S[p].y);
-    }
   }
   if (currentOverlayFunction) currentOverlayFunction();
 }
