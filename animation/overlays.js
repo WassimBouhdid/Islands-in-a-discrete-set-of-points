@@ -7,7 +7,7 @@ class TriangleOverlay {
         this.selected = [];
     }
 
-    processClick(x, y) {
+    findClosest(x, y) {
         let closest = null;
         for (let i = 0; i < this.S.length; ++i) {
             if (Math.hypot(S[i].x - x, S[i].y - y) < 5) {
@@ -15,6 +15,11 @@ class TriangleOverlay {
                 break;
             }
         }
+        return closest;
+    }
+
+    processClick(x, y) {
+        const closest = this.findClosest(x, y);
         if (closest !== null) {
             if (this.selected.length === 3)
                 this.selected = []
@@ -26,7 +31,7 @@ class TriangleOverlay {
     }
 
     quadToBottom(i, j, color) {
-        fill(color);
+        noFill();
         stroke(color);
         quad(S[i].x, S[i].y, S[j].x, S[j].y, S[j].x, windowHeight, S[i].x, windowHeight);
     }
@@ -37,16 +42,28 @@ class TriangleOverlay {
             this.quadToBottom(x, z, "green");
             this.quadToBottom(x, y, "yellow");
             this.quadToBottom(y, z, "brown");
-            // TODO : A + B - C = ...
-            const infoText = "" + numPointsInTriangle(this.TBlue, this.S, this.selected[0], this.selected[1], this.selected[2], "blue")
-             + " " + numPointsInTriangle(this.TRed, this.S, this.selected[0], this.selected[1], this.selected[2], "red");
-            text(infoText, 30, 30)
-
-            // the thing that works
-            //const pointsDown = isRightTurn(this.S[this.selected[0]], this.S[this.selected[1]], this.S[this.selected[2]]);
-            //const result = Math.abs(this.T[x][y] + this.T[y][z] - this.T[x][z]) - (pointsDown ? 1 : 0);
+            const blueText = "" + numPointsInTriangle(this.TBlue, this.S, this.selected[0], this.selected[1], this.selected[2], "blue") + " blue points"
+            const redText = "" + numPointsInTriangle(this.TRed, this.S, this.selected[0], this.selected[1], this.selected[2], "red") + " red points";
+            stroke("blue");
+            fill("blue");
+            text(blueText, 30, 90);
+            stroke("red");
+            fill("red");
+            text(redText, 30, 120);
         }
-        // TODO : redraw important points in black
+        for (let i = 0; i < this.selected.length; ++i) {
+            const p = this.S[this.selected[i]];
+            stroke(p.color);
+            fill(p.color);
+            ellipse(p.x, p.y, 6, 6);
+        }
+        const closest = this.findClosest(mouseX, mouseY);
+        if (closest !== null) {
+            const p = this.S[closest];
+            stroke(p.color);
+            fill(p.color);
+            ellipse(p.x, p.y, 6, 6);
+        }
     }
 
 }

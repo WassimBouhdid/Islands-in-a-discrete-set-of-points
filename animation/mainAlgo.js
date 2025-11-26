@@ -5,7 +5,8 @@ const ANCHORS_OVER = 3;
 
 class MainAlgo {
 
-    constructor(S, R, TBlue, TRed) {
+    constructor(S, R, TBlue, TRed, anchorImg) {
+        this.anchorImg = anchorImg;
         this.S = S;
         this.R = R;
         this.TBlue = TBlue;
@@ -16,16 +17,26 @@ class MainAlgo {
     resetRun() {
         this.bluePoints = [...Array(this.S.length).keys()].filter((p) => S[p].color === "blue");
         this.currentAnchorBP = -1;
+        this.anchorBestEdge = null;
         this.runBestWeight = 0;
         this.runBestIsland = [];
         this.stepAnchor();
     }
 
+    testMinIsland() {
+        // TODO : island size 2
+    }
+
     stepAnchor() {
+        this.updateRunBestIsland();
+        console.log("At stepAnchor entrance", this.currentAnchor, this.currentAnchorBP, this.bluePoints);
+        if (this.currentAnchor === null || this.currentAnchorBP === this.bluePoints.length - 1) {
+            this.currentAnchor = null;
+            console.log("Finished at beginning")
+            return ANCHORS_OVER;
+        }
         ++this.currentAnchorBP;
         this.currentAnchor = this.bluePoints[this.currentAnchorBP];
-        if (this.currentAnchorBP === this.bluePoints.length) return ANCHORS_OVER;
-        this.anchorBestWeight = 0;
         this.overlayIslandWeight = 0;
         this.W = [];
         this.prev = [];
@@ -39,8 +50,25 @@ class MainAlgo {
         }
         this.underPoints = this.R[this.currentAnchor].filter((i) => S[i].color === "blue");
         this.underPoints = radialOrderingHalfCut(this.currentAnchor, this.underPoints, new Vec2(-1, 0));
+
         this.anchorBestWeight = 0;
+        this.anchorBestIsland = [];
         this.anchorBestEdge = null;
+        this.currentInEdge = null;
+        this.currentOutEdge = null;
+        this.currentPivot = null;
+
+        if (this.underPoints.length <= 2) {
+            this.testMinIsland();
+            return NOT_OVER
+        }
+        this.initViableWeights();
+        if (this.underPoints.length <= 1) {
+            this.anchorBestWeight = this.underPoints.length + 1;
+            this.anchorBestEdge = []
+            this.updateRunBestIsland();
+            this.stepAnchor();
+        }
         this.initFirstWeights();
         this.currentPivotUP = 0; // must be equal to 1 at first step
         this.stepPivot();
@@ -58,18 +86,18 @@ class MainAlgo {
     }
 
     updateRunBestIsland() {
-        if (anchorBestEdge === null) return;
-        if (this.runBestWeight > this.anchorBestWeight) {
+        if (this.anchorBestEdge === null) return;
+        if (this.runBestWeight < this.anchorBestWeight) {
             this.runBestWeight = this.anchorBestWeight;
             this.runBestIsland = this.buildAnchorBestIsland();
         }
     }
 
-    filterRedPoints() {
+    initViableWeights() {
         for (let i = 0; i < this.underPoints.length - 1; ++i) {
             for (let j = i + 1; j < this.underPoints.length; ++j) {
-            if (numPointsInTriangle(this.TRed, this.S, this.currentAnchor, this.underPoints[i], this.underPoints[j], "red") > 0)
-                this.W[this.underPoints[i]][this.underPoints[j]] = null;
+            if (numPointsInTriangle(this.TRed, this.S, this.currentAnchor, this.underPoints[i], this.underPoints[j], "red") === 0)
+                this.W[this.underPoints[i]][this.underPoints[j]] = 0;
             }
         }
     }
@@ -78,6 +106,7 @@ class MainAlgo {
         const source = this.underPoints[0]
         for (let i = 1; i < this.underPoints.length; ++i) {
             const dest = this.underPoints[i];
+            if (this.W[source][dest] === null) continue; // non-viable edge
             this.W[source][dest] = numPointsInTriangle(this.TBlue, this.S, this.currentAnchor, this.underPoints[0], this.underPoints[i], "blue") + 3;
             if (this.anchorBestWeight < this.W[source][dest]) {
                 this.anchorBestWeight = this.W[source][dest];
@@ -87,61 +116,88 @@ class MainAlgo {
     }
 
     stepPivot() {
-        ++this.currentPivotUP;
-        this.currentPivot = this.underPoints[this.currentPivotUP];
-        if (this.currentPivotUP >= this.underPoints.length - 1) {
+        if (this.currentPivotUP < this.underPoints.length - 2) {
+            ++this.currentPivotUP;
+            this.currentPivot = this.underPoints[this.currentPivotUP];
+        } else {
+            this.currentPivot = null;
             return max(this.stepAnchor(), PIVOTS_OVER);
         }
+        console.log(this.currentPivotUP, this.currentPivot, this.underPoints)
         this.outEdges = radialOrderingHalfCut(this.currentPivot, R[this.currentPivot], S[this.currentPivot].minus(this.S[this.currentAnchor]));
-        this.outEdges = this.outEdges.filter(((i) => this.S[i].color === "blue" && this.S[i].y > this.S[this.currentAnchor].y));
+        this.outEdges = this.outEdges.filter(((i) => this.S[i].color === "blue" && this.S[i].y > this.S[this.currentAnchor].y
+            && this.W[this.currentPivot][i] !== null));
         this.inEdges = radialOrderingHalfCut(this.currentPivot, R[this.currentPivot], S[this.currentAnchor].minus(this.S[this.currentPivot]));
-        this.inEdges = this.inEdges.filter((i) => (this.S[i].color === "blue" && this.S[i].y > this.S[this.currentAnchor].y));
+        this.inEdges = this.inEdges.filter((i) => (this.S[i].color === "blue" && this.S[i].y > this.S[this.currentAnchor].y
+            && this.W[i][this.currentPivot] !== null));
         this.pivotBestWeight = 0;
         this.pivotBestInEdge = null;
-        this.currentOutEdgeOE = 0;
-        this.currentOutEdge = this.outEdges[this.currentOutEdgeOE];
-        this.currentInEdgeIE = 0;
-        this.currentInEdge = this.inEdges[this.currentInEdgeIE];
+        this.currentOutEdgeOE = -1;
+        this.currentOutEdge = null;
+        this.currentInEdgeIE = -1;
+        this.currentInEdge = null;
         this.lastProcessedIE = null;
+        this.lookAheadOutEdge = null;
         return NOT_OVER;
     }
 
     stepOutEdge() {
+        if (this.currentOutEdgeOE < this.outEdges.length - 1) {
+            ++this.currentOutEdgeOE;
+            this.currentOutEdge = this.outEdges[this.currentOutEdgeOE];
+            this.lookAheadOutEdge = this.currentOutEdge;
+        } else return max(EDGES_OVER, this.stepPivot());
         this.W[this.currentPivot][this.currentOutEdge] = numPointsInTriangle(this.TBlue, this.S, this.currentAnchor, this.currentPivot, this.currentOutEdge) + 3;
         if (this.pivotBestWeight > 0) {
             this.W[this.currentPivot][this.currentOutEdge] += this.W[this.pivotBestInEdge][this.currentPivot] - 2;
-            this.prev[this.currentPivot][this.currentOutEdge] += [this.pivotBestInEdge][this.currentPivot];
+            this.prev[this.currentPivot][this.currentOutEdge] = [this.pivotBestInEdge, this.currentPivot];
         }
         if (this.anchorBestWeight < this.W[this.currentPivot][this.currentOutEdge]) {
             this.anchorBestWeight = this.W[this.currentPivot][this.currentOutEdge];
             this.anchorBestEdge = [this.currentPivot, this.currentOutEdge];
         }
-        ++this.currentOutEdgeOE;
-        if (this.currentOutEdgeOE === this.outEdges.length) {
-            return max(EDGES_OVER, this.stepPivot());
-        }
-        this.currentOutEdge = this.outEdges[this.currentOutEdgeOE];
         return NOT_OVER;
     }
 
     stepInEdge() {
-        // if p-compatible, update max and go to next step ; otherwise step outEdge 
-        console.log(this.S.length, this.currentInEdge, this.currentPivot, this.currentOutEdge)
-        if (this.currentInEdgeIE === this.inEdges.length
-            || !pCompatible(this.S, this.currentInEdge, this.currentPivot, this.currentOutEdge)) {
+        // if p-compatible, update max and go to next step ; otherwise step outEdge
+        // status : returns NOT_OVER if end of inEdge list is reached, because there might be out edges to process after that
+        const lookAheadInEdgeIE = this.currentInEdgeIE + 1;
+        if (lookAheadInEdgeIE >= this.inEdges.length) {
+            // no inEdges left to process - may be outEdges left
             return max(NOT_OVER, this.stepOutEdge());
         }
-        const weight = this.W[this.currentInEdge][this.currentPivot];
-        if (weight !== null) {
-            if (this.pivotBestWeight < weight) {
-                this.pivotBestWeight = weight;
-                this.pivotBestInEdge = this.currentInEdge;
+        const lookAheadInEdge = this.inEdges[lookAheadInEdgeIE];
+        const lookAheadOutEdgeOE = this.currentOutEdgeOE + 1;
+        if (lookAheadOutEdgeOE >= this.outEdges.length) // no more out-edges to process : done with this pivot !
+            return max(EDGES_OVER, this.stepPivot());
+        this.lookAheadOutEdge = this.outEdges[lookAheadOutEdgeOE];
+        if (pCompatible(this.S, lookAheadInEdge, this.currentPivot, this.lookAheadOutEdge)) {
+            // all p-compatible in-edges must have been processed before next out-edge
+            this.currentInEdgeIE = lookAheadInEdgeIE;
+            this.currentInEdge = lookAheadInEdge;
+            const weight = this.W[this.currentInEdge][this.currentPivot];
+            if (weight !== null) {
+                if (this.pivotBestWeight < weight) {
+                    this.pivotBestWeight = weight;
+                    this.pivotBestInEdge = this.currentInEdge;
+                }
+                this.lastProcessedIE = this.currentInEdge;
             }
-            this.lastProcessedIE = this.currentInEdge;
+            return NOT_OVER
+        } else return max(NOT_OVER, this.stepOutEdge());
+    }
+
+    showSpecialPoints(showPivot = true) {
+        stroke("blue");
+        fill("blue");
+        for (let p = 0; p < this.S.length; ++p) {
+            if (p === this.currentAnchor) {
+                text("A", this.S[p].x, this.S[p].y);
+                //image(this.anchorImg, this.S[p].x, this.S[p].y, 16, 16);
+            } else if (showPivot && p === this.currentPivot)
+                text("p", this.S[p].x, this.S[p].y);
         }
-        ++this.currentInEdgeIE;
-        this.currentInEdge = this.inEdges[this.currentInEdgeIE];
-        return NOT_OVER
     }
 
     showProgressOverlay() {
@@ -150,22 +206,17 @@ class MainAlgo {
                 const source = this.underPoints[sourceUP];
                 const dest = this.underPoints[destUP];
                 if (source === this.lastProcessedIE && dest === this.currentPivot) {
-                    stroke("yellow");
-                } else if (source === this.currentPivot && dest === this.currentOutEdge) {
+                    stroke("green");
+                } else if (this.lookAheadOutEdge !== null && source === this.currentPivot && dest === this.lookAheadOutEdge) {
                     stroke("red");
-                } else if () {
-                    const edgeColor = color(50, 50, intensity);
-                    stroke(color(10, 10, 10));
+                } else if (this.W[source][dest] > 0) {
+                    const edgeColor = color(50, 50, 50, 20);
+                    stroke(edgeColor);
                 } else continue;
                 line(this.S[source].x, this.S[source].y, this.S[dest].x, this.S[dest].y);
             }
         }
-        for (let p = 0; p < this.S.length; ++p) {
-            if (p === this.currentAnchor) {
-                text("A", this.S[p].x, this.S[p].y);
-            } else if (p === this.currentPivot)
-                text("p", this.S[p].x, this.S[p].y);
-        }
+        this.showSpecialPoints();
     }
 
     showWeightOverlay() {
@@ -174,22 +225,17 @@ class MainAlgo {
                 const source = this.underPoints[sourceUP];
                 const dest = this.underPoints[destUP];
                 const weight = this.W[source][dest];
-                if (weight === null) continue;
-                const intensity = 200 * weight / this.anchorBestWeight;
-                const edgeColor = color(50, 50, intensity);
+                if (weight === null || weight === 0) continue;
+                const intensity = 255 * weight / this.anchorBestWeight;
+                const edgeColor = color((255 - intensity), 50, intensity);
                 stroke(edgeColor)
                 line(this.S[source].x, this.S[source].y, this.S[dest].x, this.S[dest].y);
             }
         }
-        for (let p = 0; p < this.S.length; ++p) {
-            if (p === this.currentAnchor) {
-                text("A", this.S[p].x, this.S[p].y);
-            } else if (p === this.currentPivot)
-                text("p", this.S[p].x, this.S[p].y);
-        }
+        this.showSpecialPoints();
     }
 
-    showGraphOverlay() {
+    showViableEdges() {
         stroke("green");
         for (let i = 0; i < this.W.length; ++i) {
             for (let j = 0; j < this.W.length; ++j) {
@@ -197,16 +243,17 @@ class MainAlgo {
                 if (weight === null) continue;
                 const a = this.S[i];
                 const b = this.S[j];
-                gradientLine(a, b, color(200, 50, 50, 0), color(50, 200, 50, 255));
+                gradientLine(a, b, color(0, 0, 255, 0), color(0, 0, 255, 255));
             }
         }
+        this.showSpecialPoints(false);
     }
 
     drawPolygon(polygon, color) {
         stroke(color);
         for (let i = 0; i < polygon.length; ++i) {
-            const current = this.S[i];
-            const next = this.S[(i + 1) % polygon.length];
+            const current = this.S[polygon[i]];
+            const next = this.S[polygon[(i + 1) % polygon.length]];
             line(current.x, current.y, next.x, next.y);
         }
     }
@@ -217,8 +264,13 @@ class MainAlgo {
             this.overlayIslandWeight = this.anchorBestWeight;
             this.overlayIsland = this.buildAnchorBestIsland();
         }
-        drawPolygon(this.overlayIsland, color(0, 0, 255));
-        drawPolygon(this.runBestIsland, color(0, 0, 255, 150));
+        this.drawPolygon(this.overlayIsland, color(0, 0, 255));
+        this.drawPolygon(this.runBestIsland, color(0, 0, 255, 40));
+        this.showSpecialPoints(false);
+    }
+
+    showResultOverlay() {
+        this.drawPolygon(this.runBestIsland, color(0, 0, 255));
     }
     
 }

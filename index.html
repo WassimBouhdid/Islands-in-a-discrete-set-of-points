@@ -4,6 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="optIslands" content="width=device-width, initial-scale=1.0" />
     <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+    <link rel="icon" type="image/png" href="animation/resources/anchor.png">
     <link href="index.css" rel="stylesheet" />
     <title>OptIslands</title>
   </head>
@@ -11,6 +12,7 @@
     <div id="content">
         <h1>Optimal islands</h1>
         <div id="navBar">
+            <div id="leftPadding" ></div>
             <div id="introSelect" class="navTab selected" section="introduction">introduction</div>
             <div id="preprocessingSelect" class="navTab" section="preprocessing">preprocessing</div>
             <div id="definitionsSelect" class="navTab" section="definitions">definitions</div>
@@ -19,37 +21,41 @@
             <div id="multiplicitySelect" class="navTab" section="multiplicity">multiplicity</div>
             <div id="generalization" class="navTab" section="generalization">generalization</div>
             <div id="references" class="navTab" section="references">references</div>
+            <div id="rightPadding"></div>
         </div>
-        <div id="introduction" class="sectionDiv currentSection">
-            <h2>Context</h2>
-            <div class="section">Given a set of 2D points S, an island I is a subset of S such that I &#x2229 S = CH(I). In other words, a subset of S is an island iff it contains all points of S that are within its own convex hull.</div>
-            <h2>Objective</h2>
-            <div class="section">We are given a set S of n points, whose coordinates are stored in an array in arbitrary order. Those points are each assigned a color : blue or red. Our mission here is to find the largest monochromatic island : an island containing a maximal number of points that are all the same color. WLOG, we will present an algorithm to find the largest blue island in S ; it can be run again after flipping colors to obtain the largest island of any color. This algorithm runs it time O(n^3) and space O(n^2).</div>
-        </div>
-        <div id="definitions" class="sectionDiv">
-            We will first go over the key notions upon which the algorithm is built.
-            <h2>Blue island</h2>
-            A blue island is an island that contains only blue points.
-            <h2>Anchor</h2>
-            In order to find the actual largest blue island, we will iterate through all blue points of S, seeing those points as candidate uppermost points : that is, we will . eventually returning the largest one ever encountered through those n iterations. This uppermost most point will be refered to as "anchor" ; we say that an island, convex hull, or triangle is "anchored at p" if p is the uppermost point of this set.
-            <h2>"Ending" in an edge</h2>
-            Let us consider the convex hull's extreme points of an island I in S. Those points can be ordered as p_1, u_2, ..., p_k counter-clockwise, starting from the anchor p_1. In this case, we say that I "ends with" the edge (p_k-2, p_k-1). Note that this is not the very last, but rather the second to last edge of this polygon if we start from (p_1, p2) (then comes the edge (p_k-1, p_1)). For the sake of simplicity, we will now call those extreme edges "edges of the island".
-            <h2>Edge weight</h2>
-            Let us now think in reverse, and consider, for a given edge e and an anchor p, the largest blue island ending with e. It follows naturally that the edge with the highest weight is the second to last edge of the island we are looking for (which is not necessarily the largest blue island of S, but it is the largest blue island anchored at p). From this perspective, finding the largest blue island anchored at p is equivalent to finding the maximum weight edge, and trace back somehow to the previous edges
-             and then the next one in clockwise order, ...etc. If you are starting to see some recurrence come on the horizon, that is spot on, but let us first define a notion that will coming handy for glueing edges together.
-            <h2>p-compatibility</h2>
-            Two edges a and b of a convex polygon anchored at p are said p-compatible if the two triangles they respectively form when connected to p are disjoint, and combine into a convex quadrilateral. Consequently, two disjoint islands anchored at p can be combined into one larger island if an edge of one is p-compatible with an edge of the other.
-        </div>
-        <div id="preprocessing" class="sectionDiv">
-            <div>Before jumping to the core ideas of the algorithm, let us build auxiliary structures that will be helpful.
+        <div id="sectionsWrapper">
+            <div id="introduction" class="sectionDiv currentSection">
+                <h2>Context</h2>
+                <div class="section">Given a set of 2D points S, an island I is a subset of S such that I &#x2229 S = CH(I). In other words, a subset of S is an island iff it contains all points of S that are within its own convex hull.</div>
+                <h2>Objective</h2>
+                <div class="section">We are given a set S of n points, whose coordinates are stored in an array in arbitrary order. Those points are each assigned a color : blue or red. Our mission here is to find the largest monochromatic island : an island containing a maximal number of points that are all the same color. WLOG, we will present an algorithm to find the largest blue island in S ; it can be run again after flipping colors to obtain the largest island of any color. This algorithm runs it time O(n<sup>3</sup>) and space O(n<sup>2</sup>).</div>
+            </div>
+            <div id="definitions" class="sectionDiv">
+                The algorithm . Under an anchor, it 
+                We will first go over the key notions upon which the algorithm is built.
+                <h2>Blue island</h2>
+                A blue island is an island that contains only blue points.
+                <h2>Anchor</h2>
+                In order to find the actual largest blue island, we will iterate through all blue points of S, seeing those points as candidate uppermost points : that is, we will build, for each point, and eventually return the largest one ever encountered through those n iterations. This uppermost most point will be refered to as "anchor" ; we say that an island, convex hull, or triangle is "anchored at p" if p is the uppermost point of this set.
+                <h2>"Ending" in an edge</h2>
+                Let us consider the convex hull's extreme points of an island I in S. Those points can be ordered as p<sub>1</sub>, u<sub>2</sub>, ..., p<sub>k</sub> counter-clockwise, starting from the anchor p<sub>1</sub>. In this case, we say that I "ends with" the edge (p<sub>k-1</sub>, p<sub>k</sub>). Note that this is not the very last, but rather the second to last edge of this polygon if we start from (p<sub>1</sub>, p<sub>2</sub>) (then comes the edge (p<sub>k</sub>, p<sub>1</sub>)). For the sake of simplicity, we will now call those extreme edges "edges of the island".
+                <h2>Edge weight</h2>
+                Let us now think in reverse, and consider, for a given edge e and an anchor p, the largest blue island ending with e. It follows naturally that the edge with the highest weight is the second to last edge of the island we are looking for (which is not necessarily the largest blue island of S, but it is the largest blue island anchored at p). From this perspective, finding the largest blue island anchored at p is equivalent to finding the maximum weight edge, and trace back somehow to the previous edges
+                and then the next one in clockwise order, ...etc. If you are starting to see some recurrence come on the horizon, that is spot on, but let us first define a notion that will coming handy for glueing edges together.
+                <h2>p-compatibility</h2>
+                Two edges a and b of a convex polygon anchored at p are said p-compatible if the two triangles they respectively form when connected to p are disjoint, and combine into a convex quadrilateral. Consequently, two disjoint islands anchored at p can be combined into one larger island if an edge of one is p-compatible with an edge of the other.
+            </div>
+            <div id="preprocessing" class="sectionDiv">
+                Before jumping to the core ideas of the algorithm, here are two key problems that we want to abstract away with some helpful preprocessing and auxiliary data structures.
                 <h2>Radial orderings</h2>
-                Most of the following steps rely strongly on radial orderings, and having to perform radial sort all over again each time we need one would compromise satisfaction of O(n^3) requirement. This is why we first build a data structure that allows to retrieve at most in linear time, for any reference point of S, some radial ordering of other points.
+                Most of the following steps rely strongly on radial orderings, and having to perform radial sort on demand each time we need one would compromise satisfaction of O(n<sup>3</sup>) requirement. This is why we first build a data structure that allows to retrieve at most in linear time, for any reference point of S, some radial ordering of all other points w.r.t. the reference.
                 <h3>Data structure</h3>
-                Most of the following steps rely strongly on radial orderings, and having to perform radial sort all over again each time we need one would compromise satisfaction of O(n^3) requirement. This is why we first build a data structure that allows to retrieve at most in linear time, for any reference point of S, some radial ordering of other points.
-                Concretely, this structure consists of a matrix R of size n x (n - 1) s.t. line i of R a sequence of points S \ {i} coming in counter-clockwise order w.r.t. i, starting from an arbitrary point. There is one small caveat when it comes to generating this sequence : radial sort is based on comparison with orientation determinant, which is not a transitive relationship for vectors of arbitrary directions. In order to compute a line of R, the set S \ {i} must first be partitioned into two subsets, each on either side of some line that goes through the reference point. Those two parts are then sorted individually and concatenated together. The whole construction process takes O(n^2logn) time, which meets the overall O(n^3) requirement.
+                Concretely, this structure consists of a matrix R of size n x (n - 1) s.t. line i of R a sequence of points S \ {i} coming in counter-clockwise order w.r.t. i, starting from an arbitrary point. There is one small caveat when it comes to generating this sequence : radial sort is based on comparison with orientation determinant, which is not a transitive relationship for vectors of arbitrary directions. In order to compute a line of R, the set S \ {i} must first be partitioned into two subsets, each on either side of some line that goes through the reference point (in our implementation, we simply considered points on the left and the right of the reference). Those two parts are then sorted individually and concatenated together. The whole construction process takes O(n<sup>2</sup>logn) time, which meets the overall O(n^3) requirement.
                 <h3>Half-cut</h3>
-                It is important to note that those are circular sequences that start with an arbitrary point, and are not in radial order strictly speaking. In what follows, we will most often need to extract a sequence in strict radial order, for a given reference point, that contains only points on the left of a certain.
-                To this end, we introduce an operation called "half cut", which returns this sequence for a given reference point, its "counte-clockwise ordering" taken in R, and a "cut vector".
+                It is important to note that those are circular sequences that start with an arbitrary point, and are not in radial order strictly speaking (that is, the angle between two consecutive points may be greater than 180° counter-clockwise). In what follows, we will most often need to extract a sequence in strict radial order, for a given reference point, that contains only points on one side of a certain line that goes through the reference.
+                To this end, we introduce an operation called "half cut", which returns this sequence for a given reference point, its "counter-clockwise sequence" taken in R, and a "cut vector".
+                <img src="illustrations/halfCut.svg" class="wideImg">
+                Notice how the sequence R<sub>i*</sub> has been shifted and filtered, yielding the sequence r containing only element within the half circle bounded by the cut vector, such that . 
                 <h2>Number of points inside a triangle</h2>
                 As we , the algorithm exploit p-compatibility. 
                 <par>Another crucial information that we will need to retrieve quickly is, for any triangle formed by 3 distinct points in S, the number of points contained in this triangle. Overmars et. al. propose a method to build in O(n^2) space and time a table that allows to retrieve this information in constant time afterward [ref]. It consists of a table T of size n x (n - 1) s.t. T_ij is the number of points that are below the segment (i, j) in the vertical stripe of the plane .
@@ -57,54 +63,53 @@
                 using table R</par>
                 We call those constant-time operation Blue(a, b, c) and Red(a, b, c).
                 Remember that points in our sets come in two : we separate . in the following, operations will be performed in constant time, and points will be accessible in radial ordering with regards to any reference point of S through .
-                
+                    
+
             </div>
-        </div>
-        <div id="mainAlgorithm" class="sectionDiv">
-        Now that the tedious sub-problems have been dealt with, the core of the algorithm is fairly simple to understand. We focus here on a single iteration over some anchor, looking to find the largest island under this point ; the complete algorithm consists of iterating over anchors, storing and updating the largest island encountered at any time.
-        Let us first retrieve the radially sorted sequence of all points below an anchor that we call p, applying our previously defined half-cut operation on p and its corresponding line in R, with the cut vector -1_y. We name the points of the resulting filtered sequence p_1, p_2, ... p_k.
-        We now consider all edges (p_i, p_j), i < j. We can view them as edges oriented counter-clockwise around p that form a graph among blue points under p, from which we can evict all non-viable edges : that is, edges (a, b) such that Red(p, a, b) > 0 (this is checked in constant time thanks to our structure T). We now want to compute the weights of all remaining edges : those will be stored in a matrix W, where W_ij is the weight of edge (p_i, p_j). Evicted edges are marked with a special value (for instance, -1), and the remaining ones are initialized with value 0.
-        Aside from weights, we keep a data structure prev such that prev_ij contains the edge that precedes (p_i, p_j), or null otherwise.
-        The first weights that we can compute easily are those of all edges coming from p_1 : in fact, islands that end with those edges cannot have other edges, so we set W_1,j to Blue(a, b, c) + 3 (since the Blue operation does not consider the extreme points of the triangle).
-        The remaining points p_2, ..., p_k-1 now have both incoming and outgoing (with regards to their counter-clockwise orientation) edges : we will thus call them "pivots". The following recurrence relationships appears :
-        For 1 <= i < k, if all predecessors p_j with 0 <= j < i have all their incoming and outgoing edge weights computed, each 
-        Notice that this hypothesis holds for p_2, and will hold for p_3 if we compute the weight of all p_2's outgoing edges.
-        This relationship enables dynamic programming : .
-        One question remains : how to compute all outgoing edges of each pivot in linear time, in order to fall under the O(n^3) global time complexity ? Checking p-compatibility for each pair of in and out edges would take quadratic time, but
-        Let us retrieve lists of predecessors and successors sorted radially around our pivot q, namely A = a_1, ..., a_l and B = b1, ..., b_m by performing half cuts on R_q* with cut vectors p - q and q - p respectively.
+            <div id="mainAlgorithm" class="sectionDiv">
+            Now that the tedious sub-problems have been dealt with, the core of the algorithm is fairly simple to understand. We focus here on a single iteration over some anchor, looking to find the largest island under this point ; the complete algorithm consists of iterating over anchors, storing and updating the largest island encountered at any time.
+            Let us first retrieve the radially sorted sequence of all points below an anchor that we call p, applying our previously defined half-cut operation on p and its corresponding line in R, with the cut vector -1<sub>y</sub>. We name the points of the resulting filtered sequence p<sub>1</sub>, p<sub>2</sub>, ... p<sub>k</sub>.
+            We now consider all edges (p<sub>i</sub>, p<sub>j</sub>), i &#60 j. We can view them as edges oriented counter-clockwise around p that form a graph among blue points under p, from which we can evict all non-viable edges : that is, edges (a, b) such that Red(p, a, b) > 0 (this is checked in constant time thanks to our structure T). We now want to compute the weights of all remaining edges : those will be stored in a matrix W, where W<sub>ij</sub> is the weight of edge (p<sub>i</sub>, p<sub>j</sub>). Evicted edges are marked with a special value (for instance, -1), and the remaining ones are initialized with value 0.
+            Aside from weights, we keep a data structure prev such that prev<sub>ij</sub> contains the edge that precedes (p<sub>i</sub>, p<sub>j</sub>), or null otherwise.
+            The first weights that we can compute easily are those of all edges coming from p<sub>1</sub> : in fact, islands that end with those edges cannot have other edges, so we set W<sub>1,j</sub> to Blue(a, b, c) + 3 (since the Blue operation does not consider the extreme points of the triangle).
+            The remaining points p<sub>2</sub>, ..., p<sub>k-1</sub> now have both incoming and outgoing (with regards to their counter-clockwise orientation) edges : we will thus call them "pivots". The following recurrence relationships appears :
+            For 1 &#8804 i &#60 k, if all predecessors p<sub>j</sub> with 0 &#8804 j &#60 i have all their incoming and outgoing edge weights computed, each 
+            Notice that this hypothesis holds for p<sub>2</sub>, and will hold for p<sub>3</sub> if we compute the weight of all p<sub>2</sub>'s outgoing edges.
+            This relationship enables dynamic programming : .
+            One question remains : how to compute all outgoing edges of each pivot in linear time, in order to fall under the O(n^3) global time complexity ? Checking p-compatibility for each pair of in and out edges would take quadratic time, but
+            Let us retrieve lists of predecessors and successors sorted radially around our pivot q, namely A = a<sub>1</sub>, ..., a<sub>l</sub> and B = b<sub>1</sub>, ..., b<sub>m</sub> by performing half cuts on R<sub>q*</sub> with cut vectors p - q and q - p respectively.
 
-        Be an anchor p, a weight matrix W
+            Be an anchor p, a weight matrix W
+            <pre>i_max := 1;
+i := 1;
+for j = 1, ..., m in order:
+    while i < l and a_i is p_compatible with b_j:
+        if W_qa_i > W_qa_imax:
+            i_max := i;
+        i := i + 1;
+    prev_qb_j = a_i
+    W_b_j := W_qa_imax + Blue(p, q, b_j) - 2;</pre>
+            The counter-clockwise order implies that if b_j is p-compatible with a_i, it is also p-compatible with a_h for all 1 <= h < i, and this includes i_max, which allows us to match the current out-edge with the best in-edge encountered so far.
 
-        i_max := 1;
-        i := 1;
-        for j = 1, ..., m in order:
-            while i < l and a_i is p_compatible with b_j:
-                if W_qa_i > W_qa_imax:
-                    i_max := i;
-                i := i + 1;
-            prev_qb_j = a_i
-            W_b_j := W_qa_imax + Blue(p, q, b_j) - 2;
-
-        The counter-clockwise order implies that if b_j is p-compatible with a_i, it is also p-compatible with a_h for all 1 <= h < i, and this includes i_max, which allows us to match the current out-edge with the best in-edge encountered so far.
-
-        </div>
-        <div id="animation" class="sectionDiv">
-            /!\ Work in progress /!\
-            <div id="animationContainer">
-                <iframe id="animationIFrame" src="animation/max-island.html"></iframe>
+            (an alternative approach of  would work as well).
             </div>
-        </div>
-        <div id="multiplicity" class="sectionDiv">
-        The paper from  evokes this degenerate case where S consists of . Indeed, 
+            <div id="animation" class="sectionDiv">
+                <div id="animationContainer">
+                    <iframe id="animationIFrame" src="animation/max-island.html"></iframe>
+                </div>
+            </div>
+            <div id="multiplicity" class="sectionDiv">
+            The paper from Bautista et. al. evokes this interesting case where the blue and red points of S are placed on k curves that are tangent to the vertices of a regular k-gon (S has k<sup>2</sup> points - k on each curve). Indeed, the largest blue islands are of size k, but a blue island of this size can be obtained either by taking the blue points on a single curve, or by taking one point from each curve (). This amounts to k + k<sup>k</sup> islands, which is exponential w.r.t. #S.
 
-        The algorithm could be modified so as to generate all those islands : . In this variant, instead of one island, a set of best islands is kept across anchor-wise iterations.
-        The pivots are processed in the same way, except that cells of prev are sets instead of single elements ; when the preprocessing of an out-edge is done, all p-compatible predecessors are stored.
-        Once all points under the anchor have been processed, the current set of largest islands is set to \emptySet if a larger island was found ; then, if  from all edges of ,
-        This step of descending pointers in prev takes exponential time and space.
+            The algorithm could be modified so as to generate all those islands. In this variant, instead of one island, a set of best islands is kept across anchor-wise iterations.
+            The pivots are processed in the same way, except that cells of prev are sets instead of single elements : when 
+            Once all points under the anchor have been processed, the current set of largest islands is set to \emptySet if a larger island was found ; then, if  from all edges of ,
+            This step of descending pointers in prev takes exponential time and space.
 
-        </div>
-        <div id="generalization" class="sectionDiv">
-            
+            </div>
+            <div id="generalization" class="sectionDiv">
+                The 
+            </div>
         </div>
     </div>
     <script src="nav.js"></script>

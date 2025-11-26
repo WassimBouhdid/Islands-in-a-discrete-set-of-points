@@ -13,7 +13,9 @@ var actionButtons = new ActionButtons();
 var mainAlgo = null;
 var currentButtons = null;
 
-var infoText = "Click to add points";
+var anchorImg = null;
+var helpText = "Click to add points";
+var infoText = "";
 
 function resetPoints(e) {
   e.stopPropagation();
@@ -137,6 +139,7 @@ function gradientLine(point1, point2, color1, color2) {
 }
 
 function startShowTriangles() { // point entry -> show triangles
+  helpText = "Click three points to show point count inside triangle";
   enablePointEntry = false;
   // test with 0 or one red/blue pt.
   actionButtons.clear();
@@ -146,52 +149,54 @@ function startShowTriangles() { // point entry -> show triangles
   const triangleOverlay = new TriangleOverlay(S, TBlue, TRed);
   currentOverlayFunction = () => triangleOverlay.draw();
   mousePressed = () => triangleOverlay.processClick(mouseX, mouseY);
-  actionButtons.set(["resources/nextAnchor.png"], [startRunAlgo], ["Next step : choose an anchor"])
+  actionButtons.set(["resources/nextAnchor.png"], [startProcessPivots], ["Next step : choose an anchor"])
   // Generate points, show stripes + (5 + 3 - 7 = ...) (color numbers and stripe correspondingly)
 }
 
-function startRunAlgo() {
-  mainAlgo = new MainAlgo(S, R, TBlue, TRed);
-  actionButtons.set(["resources/nextAnchor.png"], [startRemoveBad], ["Next step : remove non-viable edges"])
-  currentOverlayFunction = () => mainAlgo.showGraphOverlay();
-}
-
-function startRemoveBad() {
-  mainAlgo.filterRedPoints();
-  actionButtons.set(["resources/nextAnchor.png"], [startProcessPivots], ["Next step : compute first weights"])
-}
-
 function startProcessPivots() {
+  helpText = "Choose an overlay and run the algorithm";
+  mainAlgo = new MainAlgo(S, R, TBlue, TRed, anchorImg);
   actionButtons.clear();
-  console.log("Set handlers")
   const stepInEdgeHandler = () => {
-    mainAlgo.stepInEdge();
+    if (mainAlgo.stepInEdge() === ANCHORS_OVER) {
+      startShowBest();
+    }
   }
   const stepPivotHandler = () => {
     let result = NOT_OVER;
     while (result < EDGES_OVER) {
       result = mainAlgo.stepInEdge();
+      if (result === ANCHORS_OVER) {
+        startShowBest();
+        return;
+      }
     }
   }
   const stepAnchorHandler = () => {
     let result = NOT_OVER;
     while (result < PIVOTS_OVER) {
       result = mainAlgo.stepInEdge();
+      if (result === ANCHORS_OVER) {
+        startShowBest();
+        return;
+      }
     }
   }
   actionButtons.set(["resources/nextOrigin.png", "resources/nextPivot.png", "resources/nextAnchor.png"],
     [stepInEdgeHandler, stepPivotHandler, stepAnchorHandler],
     ["next edge pair", "next pivot", "next anchor"]);
-  modeButtons.set(["weights", "progress", "best island"], [
-    () => { currentOverlayFunction = () => mainAlgo.showGraphOverlay() },
-    () => { currentOverlayFunction = () => mainAlgo.showBestOverlay() },
-    () => { currentOverlayFunction = () => mainAlgo.showProgressOverlay() }
-  ], ["show edge weights", "show current in-out edges", "show best islands found so far"]);
-  currentOverlayFunction = () => mainAlgo.showWeightOverlay();
+  modeButtons.set(["viable edges", "weights", "progress", "best island"], [
+    () => { currentOverlayFunction = () => mainAlgo.showViableEdges() },
+    () => { currentOverlayFunction = () => mainAlgo.showWeightOverlay() },
+    () => { currentOverlayFunction = () => mainAlgo.showProgressOverlay() },
+    () => { currentOverlayFunction = () => mainAlgo.showBestOverlay() }
+  ], ["show viable edges & orientation", "show edge weights", "show current in-out edges", "show best islands found so far"]);
 }
 
 function startShowBest() {
-  currentOverlayFunction = () => {}
+  actionButtons.set(["resources/nextAnchor.png"], [resetRun], ["reset"]);
+  modeButtons.clear();
+  currentDisplayFunction = () => mainAlgo.showBestOverlay(true);
 }
 
 function resetRun() { // show opti -> point entry - also init.
@@ -213,6 +218,10 @@ function resetRun() { // show opti -> point entry - also init.
   };
 }
 
+function preload() {
+  //anchorImg = loadImage("resources/anchor.png");
+}
+
 function setup() {
   createCanvas(windowWidth, windowHeight);
   fill("black");
@@ -226,13 +235,13 @@ function draw() {
   background(255);
   fill("black");
   stroke("black");
+  text(helpText, 30, 30 + textSize());
   text(infoText, 30, windowHeight - 50);
   for (let p = 0; p < S.length; ++p) {
     //text("" + p, S[p].x, S[p].y)
     stroke(S[p].color);
     fill(S[p].color);
     ellipse(S[p].x, S[p].y, 4, 4);
-    //console.log("State", p, currentAnchor)
   }
   if (currentOverlayFunction) currentOverlayFunction();
 }
